@@ -1,0 +1,21 @@
+on:
+  push:
+    branches:
+      - main
+name: Deploy docs on push
+jobs:
+  web-deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    steps:
+    - name: Get latest code
+      uses: actions/checkout@v3
+    
+    - name: Sync files
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      with:
+        server: ftp.qvex.eu
+        username: qvexftpuser.qvex.eu
+        password: ${{ secrets.FTP_PASS }}
+        local-dir: ./
+        server-dir: public_html/www/apps/avr109-flasher/
