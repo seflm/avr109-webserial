@@ -3,12 +3,34 @@
 
 <head>
 	<title>QVEX Flasher</title>
+    <link rel="icon" type="image/x-icon" href="images/favicon.ico">
 	<link rel="stylesheet" href="css/style.css" />
+    
 </head>
 
 <body>
-    <input id="fileInput" tabindex="-1" type="file" /><br>
-    <button id="readyButton" disabled>I'm ready</button>
+
+    <div id="mainContainer">
+        
+        <div style="text-align: center;">
+            <img id="flasherLogo" src="images/qvex-flasher-logo-white.svg"><br><hr>
+            Tool for flashing Intel HEX files onto QVEX Lynepad and other Avr109 compatible boards.<br>
+        </div>
+        <div class="step-section">
+            <div>
+                <input id="fileInput" tabindex="-1" type="file" accept=".hex"/>
+            </div>
+        </div>
+        <div id="instructSection" class="step-section" style="display:none;">
+            <div>
+                Once you hit the „I'm ready“ button:<br><br>
+                1. An empty authorization window will pop up<br>
+                2. Reset the device into bootloader (reset Lynepad with the provided SIM tool)<br>
+                3. Authorize the device that appears, you got about 7 seconds to do that
+            </div>
+            <button id="readyButton" disabled>I'm ready</button>
+        </div>
+    </div>
 
 
     <script src="js/flasher.js"></script>
@@ -16,36 +38,87 @@
 
         const readyButtonElement = document.getElementById("readyButton");
         const fileInputElement = document.getElementById('fileInput');
+        const mainContainer = document.getElementById("mainContainer");
+        const instructSectionElement = document.getElementById("instructSection");
 
+        let progressSection = undefined;
+
+        function writeProgress(progress, error=undefined)
+        {
+            if (progress == 0 && error == undefined)
+            {
+                if (progressSection)
+                {
+                    progressSection.remove();
+                    progressSection = undefined;
+                }
+                return;
+            }
+
+            if (progressSection == undefined)
+            {
+                const section = document.createElement("div");
+                section.style = "text-align:center;";
+                section.innerHTML = 
+                `<progress value="0" max="100"></progress><br>
+                <span>0 %</span>`;
+                
+                progressSection = section;
+                mainContainer.appendChild(progressSection);
+            }
+
+            if (error)
+            {
+                progressSection.querySelector("progress").value = 100;
+                progressSection.querySelector("progress").classList.add("progress-fail");
+                progressSection.querySelector("span").innerHTML = error;
+                return;
+            }
+            
+            progressSection.querySelector("progress").value = progress;
+            progressSection.querySelector("span").innerHTML = progress + " %";
+            
+            if (progress == 100)
+            {
+                progressSection.querySelector("progress").classList.add("progress-complete");
+                progressSection.querySelector("span").innerHTML = "Done!";
+            }
+                
+        }
 
         readyButtonElement.addEventListener("click",(e)=>
         {
-            console.log("ready");
 
             const file = fileInput.files[0];
             const fileReader = new FileReader();
 
             fileReader.onload = async function (event) 
 			{
-                console.log("file onload");
-                const flasher = new AVR109Flasher(event.target.result,0x2341,0x0036);
-                flasher.flash();
+                const flasher = new AVR109Flasher(event.target.result,0x2341,0x0036,writeProgress);
+
+                flasher.flash().catch((error)=>{writeProgress(0, error);});
+                
             }
 
             fileReader.readAsText(file);
 
-            
         });
 
         fileInputElement.addEventListener('change', (event) => 
 		{
-			/* const file = event.target.files[0];
-			if (file)
-				fileName.textContent = file.name; */
             if (event.target.files[0])
             {
                 readyButtonElement.disabled = false;
+                instructSectionElement.style = "";
             }
+            else
+            {
+                readyButtonElement.disabled = true;
+                instructSectionElement.style = "display:none;";
+            }
+
+            writeProgress(0);
+            
 		});
 
     </script>

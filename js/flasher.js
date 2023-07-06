@@ -1,10 +1,40 @@
+/*
+
+MIT License
+
+Copyright (c) 2021 Benjamin Aigner
+Copyright (c) 2023 QVEX Tech
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+*/
+
 class AVR109Flasher
 {
-    constructor(dataToFlash, usbVid, usbPid)
+    constructor(dataToFlash, usbVid, usbPid, progressCallback=undefined)
     {
         this.dataToFlash = dataToFlash;
         this.usbVid = usbVid;
         this.usbPid = usbPid;
+
+        if (progressCallback)
+            this.progressCallback = progressCallback;
     }
 
     async flash()
@@ -54,8 +84,6 @@ class AVR109Flasher
                 writer.releaseLock();
                 break;
             }
-            // value is a Uint8Array.
-            //console.log(value);
             
             /****************/
             // 3.) flashing the .hex file (event driven by the received data from the ATMega32U4).
@@ -67,14 +95,14 @@ class AVR109Flasher
                 //1.) "S" => "CATERIN" - get programmer ID
                 if (equals(value, [67, 65, 84, 69, 82, 73, 78])) 
                 {
-                    console.log("programmer \"CATERIN\" detected, entering programming mode");
+                    //console.log("programmer \"CATERIN\" detected, entering programming mode");
                     await writer.write(new Uint8Array([0x50]));
                     await delay(5);
                     state = 1;
                 } 
                 else 
                 {
-                    console.log("error: unexpected RX value in state 0, waited for \"CATERIN\"");
+                    //console.log("error: unexpected RX value in state 0, waited for \"CATERIN\"");
                 }
             } 
             else if (state == 1) 
@@ -82,15 +110,15 @@ class AVR109Flasher
                 //2.) "P" => 13d - enter programming mode
                 if (equals(value, [13])) 
                 {
-                    console.log("setting address to: " + address);
+                    //console.log("setting address to: " + address);
                     const data = new Uint8Array([0x41, (address >> 8) & 0xFF, address & 0xFF]); // 'A' high low
-                    console.log("O: " + data);
+                    //console.log("O: " + data);
                     await writer.write(data);
                     await delay(5);
                     state = 2;
                 } else 
                 {
-                    console.log("error: unexpected RX value in state 1, waited for 13");
+                    //console.log("error: unexpected RX value in state 1, waited for 13");
                 }
             } 
             else if (state == 2) 
@@ -103,6 +131,9 @@ class AVR109Flasher
                     let data;
 
                     cmd = new Uint8Array([0x42, 0x00, 0x80, 0x46]); //flash page write command ('B' + 2bytes size + 'F')
+
+                    if (this.progressCallback)
+                        this.progressCallback(Math.round(pageStart/flashData.data.length*100));
                     
                     //determine if this is the last page (maybe incomplete -> fill with 0xFF)
                     if (pageStart + 128 > flashData.data.length) 
@@ -111,7 +142,6 @@ class AVR109Flasher
                         const pad = new Uint8Array(128 - data.length); //create a new padding array 
                         pad.fill(0xFF);
                         txx = Uint8Array.from([...cmd, ...data, ...pad]); //concat command, remaining data and padding
-                        console.log("last page");
                         state = 3;
                     } 
                     else 
@@ -121,17 +151,17 @@ class AVR109Flasher
                         state = 1;
                     }
                     
-                    console.log("adress set, writing one page: " + data);
+                    //console.log("adress set, writing one page: " + data);
                     pageStart += 128;
                     address += 64;
                     //write control + flash data
                     await writer.write(txx);
-                    console.log("O: " + txx);
+                    //console.log("O: " + txx);
                     await delay(5);
                 } 
                 else 
                 {
-                    console.log("error: state 2");
+                    //console.log("error: state 2");
                 }
                 
             } else if (state == 3) 
@@ -139,17 +169,17 @@ class AVR109Flasher
                 //4.) last page sent, finish update
                 if (value[0] == 13) 
                 {
-                    console.log("Last page write, leaving programming mode");
+                    //console.log("Last page write, leaving programming mode");
                     //finish flashing and exit bootloader
                     await writer.write(new Uint8Array([0x4C])); //"L" -> leave programming mode
                     state = 4;
                     /*state = -1;
                     gear.classList.remove('spinning');
-                    console.log("finished!");
+                    //console.log("finished!");
                     reader.cancel();*/
                 } else 
                 {
-                    console.log("NACK");
+                    //console.log("NACK");
                 }
             } 
             else if (state == 4) 
@@ -157,16 +187,16 @@ class AVR109Flasher
                 //5.) left programming mode, exiting bootloader
                 if (value[0] == 13) 
                 {
-                    console.log("Exiting bootloader");
+                    //console.log("Exiting bootloader");
                     //finish flashing and exit bootloader
                     await writer.write(new Uint8Array([0x45])); //"E" -> exit bootloader
                     state = -1;
-                    console.log("finished!");
+                    //console.log("finished!");
                     reader.cancel();
                 } 
                 else 
                 {
-                    console.log("NACK");
+                    //console.log("NACK");
                 }
                 
             }
