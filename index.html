@@ -11,7 +11,6 @@
 <body>
 
     <div id="mainContainer">
-        <div class="spacer"></div>
         <div style="text-align: center;">
             <img id="flasherLogo" src="images/qvex-flasher-logo-white.svg"><br><hr>
             Tool for flashing Intel HEX files onto QVEX Lynepad and other Avr109 compatible boards.<br><br>
@@ -32,7 +31,6 @@
             </div>
             <button id="readyButton" disabled>I'm ready</button>
         </div>
-        <div class="spacer"></div>
     </div>
 
 
@@ -66,8 +64,8 @@
                 `<progress value="0" max="100"></progress><br>
                 <span>0 %</span>`;
                 
-                progressSection = section;
-                mainContainer.appendChild(progressSection);
+                progressSection = mainContainer.appendChild(section);
+                progressSection.scrollIntoView({ behavior: "smooth"});
             }
 
             if (error)
@@ -98,9 +96,7 @@
             fileReader.onload = async function (event) 
 			{
                 const flasher = new AVR109Flasher(event.target.result,0x2341,0x0036,writeProgress);
-
-                flasher.flash().catch((error)=>{writeProgress(0, error);});
-                
+                flasher.flash().catch((error)=>{writeProgress(0, error);}); 
             }
 
             fileReader.readAsText(file);
@@ -113,6 +109,7 @@
             {
                 readyButtonElement.disabled = false;
                 instructSectionElement.style = "";
+                instructSectionElement.scrollIntoView({ behavior: "smooth"});
             }
             else
             {
