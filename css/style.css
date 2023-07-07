@@ -17,7 +17,7 @@ html, body
     justify-content: center;
     flex-direction: column;
     gap: 3em;
-    height: 100%;
+    min-height: 100%;
     width: 100%;
 }
 
@@ -28,7 +28,7 @@ html, body
 
 .step-section
 {
-    width: 35%;
+    width: 45%;
     border-radius: 1em;
     padding: 2em;
     background-color: #444;
